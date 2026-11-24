@@ -129,6 +129,7 @@ const DATA = {
     load: "기준 하중 300 g",
     speed: "기준 속도 0.1 m/s",
     samples: "시료 3장 × 측정점 25개",
+    repeatability: 1.5, // 같은 지점 반복측정 표준편차(%) — 이보다 작은 차이는 의미 없음
   },
   // 핵심 마찰값 (기준 하중·속도, 0° 방향)
   friction: { us: 0.392, uk: 0.318 },
@@ -141,27 +142,27 @@ const DATA = {
   loads: [100, 300, 500],
   // 속도별 μk (하중별 곡선)
   speedCurve: {
-    speeds: [0.01, 0.03, 0.1, 0.3, 1.0, 2.0],
+    speeds: [0.01, 0.03, 0.1, 0.3, 1.0],
     byLoad: {
-      100: [0.352, 0.341, 0.331, 0.324, 0.320, 0.319],
-      300: [0.338, 0.328, 0.318, 0.311, 0.306, 0.305],
-      500: [0.329, 0.319, 0.309, 0.301, 0.296, 0.294],
+      100: [0.352, 0.341, 0.331, 0.324, 0.320],
+      300: [0.338, 0.328, 0.318, 0.311, 0.306],
+      500: [0.329, 0.319, 0.309, 0.301, 0.296],
     },
   },
   // 습도별 μk
   humidity: { rh: [30, 50, 65, 85], uk: [0.309, 0.314, 0.318, 0.334] },
   // 마모 사이클별 μk (Martindale 왕복 후)
-  wear: { cycles: ["신품", "1천 회", "1만 회", "10만 회"], uk: [0.318, 0.312, 0.305, 0.297] },
+  wear: { cycles: ["신품", "1천 회", "1만 회", "10만 회"] /* 왕복 마모 리그, 300 g */, uk: [0.318, 0.312, 0.305, 0.297] },
   // 5×5 면 균일도 μk (좌상단 → 우하단)
   uniformity: [
-    [0.322, 0.319, 0.317, 0.318, 0.321],
-    [0.319, 0.316, 0.315, 0.317, 0.320],
-    [0.318, 0.315, 0.314, 0.316, 0.318],
-    [0.320, 0.317, 0.316, 0.318, 0.322],
-    [0.324, 0.321, 0.319, 0.321, 0.325],
+    [0.331, 0.322, 0.315, 0.319, 0.328],
+    [0.321, 0.312, 0.309, 0.314, 0.325],
+    [0.318, 0.308, 0.305, 0.311, 0.320],
+    [0.324, 0.314, 0.310, 0.316, 0.327],
+    [0.335, 0.326, 0.319, 0.323, 0.338],
   ],
   // 베이스
-  base: { thickness: 4.02, cfd25: 18.6, compressionSet: 6.2, shore: "Shore 00 42", grip: 2.9 },
+  base: { thickness: 4.02, cfd25: 18.6, compressionSet: 6.2, shore: "Shore 00 42", gripMu: 1.05 },
   // 포지셔닝 비교용 기준 패드 (자사 라인업 등)
   references: [
     { name: "기준 A (스피드)", uk: 0.235 },
@@ -288,7 +289,7 @@ function render() {
       <span>크기 <b>${P.size}</b></span><span>두께 <b>${P.thickness}</b></span>
       <span>표면 <b>${P.surface}</b></span><span>베이스 <b>${P.base}</b></span><span>마감 <b>${P.edge}</b></span>
     </div>
-    <div class="cond">${Object.values(C).map((c) => `<span class="chip">${c}</span>`).join("")}</div>
+    <div class="cond">${Object.values(C).filter((c) => typeof c === "string").map((c) => `<span class="chip">${c}</span>`).join("")}<span class="chip">반복정밀도 ±${C.repeatability}%</span></div>
   </header>
 
   <section>
@@ -298,7 +299,7 @@ function render() {
       <div class="tile"><div class="k">정지 마찰 μs</div><div class="v">${f3(D.friction.us)}</div><div class="n">초동 저항</div></div>
       <div class="tile"><div class="k">운동 마찰 μk</div><div class="v">${f3(D.friction.uk)}</div><div class="n">활주 저항 · 속도감</div></div>
       <div class="tile"><div class="k">스토핑 Δ(μs−μk)</div><div class="v">${f3(stop)}</div><div class="n">클수록 멈춤이 또렷함</div></div>
-      <div class="tile"><div class="k">면 균일도 CV</div><div class="v">${cv.toFixed(1)}%</div><div class="n">25점 μk 변동계수</div></div>
+      <div class="tile"><div class="k">면 균일도 CV</div><div class="v">${cv.toFixed(1)}%</div><div class="n">25점 μk 변동계수 (장비 반복정밀도 ±${C.repeatability}%)</div></div>
       <div class="tile"><div class="k">습도 민감도</div><div class="v">${humChange >= 0 ? "+" : ""}${humChange.toFixed(1)}%</div><div class="n">μk, 50 → ${D.humidity.rh[rhHi]} %RH</div></div>
       <div class="tile"><div class="k">마모 후 μk 변화</div><div class="v">${wearChange >= 0 ? "+" : ""}${wearChange.toFixed(1)}%</div><div class="n">${D.wear.cycles.at(-1)} 이후</div></div>
     </div>
@@ -338,7 +339,7 @@ function render() {
     </section>
     <section>
       <h2>마모 후 운동 마찰</h2>
-      <p class="sub">Martindale 왕복 마모 후 같은 조건으로 다시 측정한 값입니다.</p>
+      <p class="sub">PTFE 피트로 같은 트랙을 왕복 마모시킨 뒤 그 트랙 위에서 다시 측정한 값입니다.</p>
       <div id="c-wear"></div>
       ${dataTable(["마모", "μk"], D.wear.cycles.map((c, i) => [c, f3(D.wear.uk[i])]))}
     </section>
@@ -357,16 +358,16 @@ function render() {
       <table><tbody>
         <tr><td>실측 두께 (정압 0.5 kPa)</td><td>${D.base.thickness.toFixed(2)} mm</td></tr>
         <tr><td>25 % 압축 하중 (CFD)</td><td>${D.base.cfd25} kPa</td></tr>
-        <tr><td>압축 영구변형 (22 h, 25 %)</td><td>${D.base.compressionSet} %</td></tr>
-        <tr><td>경도</td><td>${D.base.shore}</td></tr>
-        <tr><td>바닥 미끄럼 저항 (MDF, 수평)</td><td>${D.base.grip} kgf</td></tr>
+        <tr><td>압축 영구변형 (50 % 압축, 22 h, 23 ℃)</td><td>${D.base.compressionSet} %</td></tr>
+        <tr><td>경도 (6 mm 이상 적층)</td><td>${D.base.shore}</td></tr>
+        <tr><td>바닥 정지 마찰계수 (MDF, 2 kg 추 하중)</td><td>${D.base.gripMu.toFixed(2)}</td></tr>
       </tbody></table>
     </section>
   </div>
 
   <section>
     <h2>센서 호환성</h2>
-    <p class="sub">LOD는 1 mm 단위 스페이서 + 0.1 mm 심 조합, CPI 편차는 400 mm 이동 기준 실측입니다.</p>
+    <p class="sub">LOD는 0.1 mm 심 적층, CPI 편차는 리니어 스테이지 300 mm 이동 기준이며, 최대 추적 속도는 회전 원판(반경 15 cm, 637 rpm = 10 m/s)으로 측정합니다.</p>
     <table>
       <thead><tr><th>센서</th><th>LOD (mm)</th><th>CPI 편차</th><th>최대 추적 속도</th></tr></thead>
       <tbody>${D.sensors.map((s) => `<tr><td>${s.sensor}</td><td>${s.lod.toFixed(1)}</td><td>${s.cpiDev > 0 ? "+" : ""}${s.cpiDev.toFixed(1)} %</td><td>${s.maxSpeed}</td></tr>`).join("")}</tbody>
@@ -388,10 +389,10 @@ function render() {
     <ol>
       <li><b>상태조절</b>: 시료를 ${C.climate}.</li>
       <li><b>마찰</b>: ASTM D1894 / ISO 8295 원리를 적용하되, 실제 마우스 사용 조건에 맞춰 상대재를 ${C.counterface}로 바꿨습니다. 정지 마찰은 출발 피크, 운동 마찰은 정상 구간 평균입니다.</li>
-      <li><b>하중 · 속도</b>: 100 / 300 / 500 g, 0.01–2 m/s. 리니어 스테이지 + 로드셀(샘플링 1 kHz)을 사용했습니다.</li>
-      <li><b>면 균일도</b>: 패드를 5 × 5 격자로 나눠 각 셀 중앙에서 300 g · 0.1 m/s로 측정했습니다.</li>
-      <li><b>습도</b>: 항온항습 챔버에서 각 조건마다 4 h 안정화한 뒤 측정했습니다.</li>
-      <li><b>베이스</b>: ASTM D1056 / ISO 3386 (압축 하중), ISO 1856 (압축 영구변형), ASTM D2240 (경도).</li>
+      <li><b>하중 · 속도</b>: 100 / 300 / 500 g, 0.01–1 m/s. 패드 긴 변(유효 행정 약 370 mm)에서 S-커브 가감속 서보 리니어 스테이지를 쓰고, 로드셀은 슬레드에 강결합한 뒤 24bit ADC로 1 kHz 이상 샘플링합니다. 당기는 지점은 피트 높이에 맞추고, 가속 직후의 과도 구간은 빼고 정상 구간만 평균냅니다.</li>
+      <li><b>면 균일도</b>: 패드를 5 × 5 격자(셀 약 98 × 84 mm)로 나눠 각 셀 안에서 300 g · 0.1 m/s로 약 30 mm 구간을 측정합니다. 장비 반복정밀도(±${C.repeatability}%) 이내의 차이는 같은 값으로 봅니다.</li>
+      <li><b>습도</b>: 각 습도 조건에서 24 h 상태조절한 뒤, 같은 조건의 챔버 안에서 측정합니다.</li>
+      <li><b>베이스</b>: ASTM D1056 (25 % 압축 하중), ISO 1856 (50 % 압축 영구변형), ASTM D2240 (경도). 두께가 규격 최소치보다 얇으면 적층해서 측정합니다.</li><li><b>마모</b>: 원단 자체 마모 저항은 Martindale(ISO 12947-2)로, 사용에 따른 마찰 변화는 PTFE 피트 왕복 마모 리그로 따로 측정합니다.</li>
       <li><b>통계</b>: ${C.samples}. 표시값은 평균이며, 측정점별 원자료는 요청 시 제공합니다.</li>
     </ol>
   </section>
